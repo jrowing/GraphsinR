@@ -1,0 +1,122 @@
+---
+title: "Modelling the Doppler shift in Binary stars"
+output: html_document
+---
+
+This model visualizes the observed Doppler shift in frequency for two stars in a binary star system over time. The Doppler effect, caused by the relative motion of the stars, shifts the frequency of their emitted radiation as observed from Earth. This plot demonstrates how the frequencies of the two stars (Star 1 and Star 2) vary over time, reflecting the periodic nature of their orbits.
+
+In this plot:
+
+The x-axis represents time in years. The y-axis represents the frequency shift (in THz) observed from Earth. Each line corresponds to one star, with Star 1 and Star 2 shown in different colors to differentiate their respective frequency shifts. By visualizing this data, we can analyze the periodicity and behavior of the Doppler shifts, which provides insight into the stars' orbital dynamics and relative motion.
+
+```{r}
+library(ggplot2)
+library(plotly)
+
+# Constants
+G <- 6.67430e-11  # Gravitational constant (m^3/kg/s^2)
+c <- 3e8          # Speed of light (m/s)
+M_sun <- 1.989e30 # Solar mass (kg)
+AU <- 1.496e11    # Astronomical unit (m)
+year <- 365 * 24 * 3600  # Seconds in a year
+
+# Binary system parameters
+M1 <- 0.2 * M_sun
+M2 <- M_sun
+a <- 1 * AU
+i <- 60  # degrees
+
+# Derived values
+a1 <- a * M2 / (M1 + M2)
+a2 <- a * M1 / (M1 + M2)
+P <- 2 * pi * sqrt(a^3 / (G * (M1 + M2)))
+
+# Time and phase
+t <- seq(0, P, length.out = 1000)
+theta <- 2 * pi * t / P
+
+# Orbital positions
+x1 <- a1 * cos(theta)
+y1 <- a1 * sin(theta)
+x2 <- -a2 * cos(theta)
+y2 <- -a2 * sin(theta)
+
+# Line-of-sight velocities
+i_rad <- i * pi / 180
+v1_los <- (2 * pi * a1 / P) * sin(theta) * sin(i_rad)
+v2_los <- -(2 * pi * a2 / P) * sin(theta) * sin(i_rad)
+
+# Doppler shift
+f_rest <- 500e12  # Hz
+f1_obs <- f_rest * (1 + v1_los / c)
+f2_obs <- f_rest * (1 + v2_los / c)
+
+# Create dataframes for plotting
+df_orbit <- data.frame(
+  x1 = x1 / AU, y1 = y1 / AU,
+  x2 = x2 / AU, y2 = y2 / AU
+)
+
+df_doppler <- data.frame(
+  time_years = t / year,
+  f1_observed_THz = f1_obs / 1e12,
+  f2_observed_THz = f2_obs / 1e12
+)
+
+```
+
+```{r}
+
+
+# Define colors
+colors <- c("Star 1" = "blue", "Star 2" = "red")
+
+# Extract first-row data for both stars
+first_points <- data.frame(
+  x = c(df_orbit$x1[1], df_orbit$x2[1]),
+  y = c(df_orbit$y1[1], df_orbit$y2[1]),
+  star = c("Star 1", "Star 2")
+)
+
+# Plot
+p1_plotly <- plot_ly() %>%
+  # Orbit paths
+  add_trace(data = df_orbit, x = ~x1, y = ~y1, type = 'scatter', mode = 'lines',
+            line = list(color = colors["Star 1"]),
+            name = "Star 1 (orbit)") %>%
+  add_trace(data = df_orbit, x = ~x2, y = ~y2, type = 'scatter', mode = 'lines',
+            line = list(color = colors["Star 2"]),
+            name = "Star 2 (orbit)") %>%
+  # Initial positions
+  add_trace(data = first_points, x = ~x, y = ~y, type = 'scatter', mode = 'markers',
+            
+            colors = colors,
+            marker = list(size = 8, symbol = "circle"),
+            name = "Initial positions") %>%
+  # Central point
+  add_trace(x = 0, y = 0, type = 'scatter', mode = 'markers',
+            marker = list(size = 6, color = 'black'),
+            name = "Centre") %>%
+  layout(title = "Binary Star System",
+         xaxis = list(title = "x (AU)", scaleanchor = "y"),
+         yaxis = list(title = "y (AU)"),
+         showlegend = TRUE)
+
+
+# Plot 2: Doppler Shift
+p2_plotly <- plot_ly(data = df_doppler) %>%
+  add_trace(x = ~time_years, y = ~f1_observed_THz, type = 'scatter', mode = 'lines',
+            line = list(color = colors["Star 2"]),
+            name = "Star 2") %>%
+  add_trace(x = ~time_years, y = ~f2_observed_THz, type = 'scatter', mode = 'lines',
+            line = list(color = colors["Star 1"]),
+            name = "Star 1") %>%
+  layout(title = "Doppler Shift Observed",
+         xaxis = list(title = "Time (years)"),
+         yaxis = list(title = "Frequency (THz)"),
+         legend = list(title = list(text = "Star")))
+
+# To display the plots:
+p1_plotly
+p2_plotly
+```
